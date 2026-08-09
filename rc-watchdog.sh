@@ -12,8 +12,25 @@ source "$SCRIPT_DIR/.env"
 [ -n "${XDG_RUNTIME_DIR:-}" ] && export XDG_RUNTIME_DIR
 [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ] && export DBUS_SESSION_BUS_ADDRESS
 
+# Der systemd-Timer laeuft minuetlich (siehe rc-watchdog.timer); wie oft WIRKLICH geprueft wird,
+# steuert stattdessen diese .env-Variable - Timer-Intervalle koennen kein .env lesen.
+CHECK_INTERVAL_SECONDS="${CHECK_INTERVAL_SECONDS:-900}"
+# Command, das bei einem Neustart ausgefuehrt wird - in .env anpassbar (z.B. anderes Profil/Server).
+LAUNCH_CMD="${LAUNCH_CMD:-flatpak run org.prismlauncher.PrismLauncher --launch LabyMod --server opsucht.net}"
+
+CHECK_LOCK_FILE="/tmp/rc-watchdog-check.lock"
 LOCK_FILE="/tmp/rc-watchdog.lock"
 LOG_FILE="/tmp/rc-watchdog-flatpak.log"
+
+# Seltener als CHECK_INTERVAL_SECONDS pruefen, auch wenn der Timer oefter (minuetlich) feuert
+if [ -f "$CHECK_LOCK_FILE" ]; then
+  last_check=$(cat "$CHECK_LOCK_FILE")
+  now=$(date +%s)
+  if (( now - last_check < CHECK_INTERVAL_SECONDS )); then
+    exit 0
+  fi
+fi
+date +%s > "$CHECK_LOCK_FILE"
 
 # Nicht pruefen, waehrend gerade erst neu gestartet wurde (Client braucht 1-3 Min)
 if [ -f "$LOCK_FILE" ]; then
@@ -33,6 +50,6 @@ if [ "$online" != "true" ]; then
   pkill -f 'java.*minecraft' || true
   sleep 5
   # Output geht in eine Log-Datei statt /dev/null, damit ein stiller Fehlschlag (z.B. fehlendes DISPLAY) sichtbar bleibt: tail -f "$LOG_FILE"
-  nohup flatpak run org.prismlauncher.PrismLauncher --launch LabyMod --server opsucht.net >>"$LOG_FILE" 2>&1 &
+  nohup $LAUNCH_CMD >>"$LOG_FILE" 2>&1 &
   date +%s > "$LOCK_FILE"
 fi
