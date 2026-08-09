@@ -45,12 +45,40 @@ fi
 
 online=$(curl -fsS -H "Authorization: Bearer $RC_TOKEN" "$RC_API/v1/pay/online" | jq -r '.online')
 
-if [ "$online" != "true" ]; then
-  echo "Bot offline - starte Minecraft neu."
+# Killt alle Reste eines vorherigen Laufs - nicht nur "flatpak kill" (das nichts findet, wenn der
+# Sandbox-Prozess verwaist ist), sondern auch die bwrap-Sandbox und den Java-Prozess direkt.
+kill_client() {
   flatpak kill org.prismlauncher.PrismLauncher || true
   pkill -f 'java.*minecraft' || true
-  sleep 5
-  # Output geht in eine Log-Datei statt /dev/null, damit ein stiller Fehlschlag (z.B. fehlendes DISPLAY) sichtbar bleibt: tail -f "$LOG_FILE"
-  nohup $LAUNCH_CMD >>"$LOG_FILE" 2>&1 &
+  pkill -9 -f 'bwrap.*prismlauncher' || true
+  pkill -9 -f 'org.prismlauncher.EntryPoint' || true
+  sleep 8
+}
+
+# Prueft, ob nach einem Start tatsaechlich ein Java/Minecraft-Prozess laeuft.
+client_is_running() {
+  pgrep -f 'org.prismlauncher.EntryPoint' >/dev/null 2>&1
+}
+
+if [ "$online" != "true" ]; then
+  echo "Bot offline - starte Minecraft neu."
+  kill_client
+
+  for attempt in 1 2; do
+    # Output geht in eine Log-Datei statt /dev/null, damit ein stiller Fehlschlag (z.B. fehlendes DISPLAY) sichtbar bleibt: tail -f "$LOG_FILE"
+    nohup $LAUNCH_CMD >>"$LOG_FILE" 2>&1 &
+    sleep 20
+    if client_is_running; then
+      echo "Neustart erfolgreich (Versuch $attempt)."
+      break
+    fi
+    echo "Neustart-Versuch $attempt: kein laufender Prozess erkannt."
+    if [ "$attempt" -eq 1 ]; then
+      # Vermutlich eine haengende D-Bus-Aktivierung/Sandbox-Leiche vom vorherigen Lauf - nochmal
+      # gruendlich killen und ein zweites Mal versuchen, bevor wir aufgeben.
+      kill_client
+    fi
+  done
+
   date +%s > "$LOCK_FILE"
 fi
