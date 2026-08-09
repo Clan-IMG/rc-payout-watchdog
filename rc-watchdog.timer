@@ -1,0 +1,10 @@
+[Unit]
+Description=Alle 15 Min pruefen ob der Payout-Bot online ist
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=15min
+Unit=rc-watchdog.service
+
+[Install]
+WantedBy=timers.target
