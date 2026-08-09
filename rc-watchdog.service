@@ -3,5 +3,5 @@ Description=Remote-Control Payout-Bot Watchdog
 
 [Service]
 Type=oneshot
-WorkingDirectory=%h/scripts/rc-watchdog
-ExecStart=%h/scripts/rc-watchdog/rc-watchdog.sh
+WorkingDirectory=%h/scripts/rc-payout-watchdog
+ExecStart=%h/scripts/rc-payout-watchdog/rc-watchdog.sh
