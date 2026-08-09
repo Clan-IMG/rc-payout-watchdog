@@ -14,7 +14,8 @@ source "$SCRIPT_DIR/.env"
 
 # Der systemd-Timer laeuft minuetlich (siehe rc-watchdog.timer); wie oft WIRKLICH geprueft wird,
 # steuert stattdessen diese .env-Variable - Timer-Intervalle koennen kein .env lesen.
-CHECK_INTERVAL_SECONDS="${CHECK_INTERVAL_SECONDS:-900}"
+CHECK_INTERVAL="${CHECK_INTERVAL:-15m}"
+CHECK_INTERVAL_SECONDS=$(( ${CHECK_INTERVAL%m} * 60 ))
 # Command, das bei einem Neustart ausgefuehrt wird - in .env anpassbar (z.B. anderes Profil/Server).
 LAUNCH_CMD="${LAUNCH_CMD:-flatpak run org.prismlauncher.PrismLauncher --launch LabyMod --server opsucht.net}"
 
